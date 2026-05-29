@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "opencode-task-utils",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Task persistence, listing, and pipeline chaining for opencode background subagents.",
   "type": "module",
   "license": "MIT",
@@ -35,15 +35,10 @@
     "test.sh",
     "README.md"
   ],
-  "engines": {
-    "node": ">=18"
-  },
-  "peerDependencies": {
+  "dependencies": {
     "@opencode-ai/plugin": ">=1.0.0"
   },
-  "peerDependenciesMeta": {
-    "@opencode-ai/plugin": {
-      "optional": true
-    }
+  "engines": {
+    "node": ">=18"
   }
 }
