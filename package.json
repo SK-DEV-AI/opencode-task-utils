@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "opencode-task-utils",
+  "version": "1.0.0",
+  "description": "Task persistence, listing, and pipeline chaining for opencode background subagents.",
+  "type": "module",
+  "license": "MIT",
+  "author": "SK",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "task",
+    "subagent",
+    "pipeline",
+    "background"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SK-DEV-AI/opencode-task-utils.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SK-DEV-AI/opencode-task-utils/issues"
+  },
+  "homepage": "https://github.com/SK-DEV-AI/opencode-task-utils#readme",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opencode-ai/plugin": {
+      "optional": true
+    }
+  }
+}
