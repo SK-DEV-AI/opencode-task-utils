@@ -1,29 +1,30 @@
 # opencode-task-utils
 
-Task persistence, listing, and pipeline chaining for opencode background subagents.
+Task persistence, listing, pipeline chaining, and step management for opencode background subagents.
 
 ## Tools
 
 **`task_list`** — List tracked background tasks. Filter by `chain_id` or `status`.
 
-**`task_save`** — Persist a subagent result to `/tmp/opencode-tasks/{task_id}.md` with metadata.
+**`task_save`** — Persist a subagent result to `/tmp/opencode-tasks/{task_id}.md` with metadata. Supports upsert (update existing entry) and all statuses: `pending`, `running`, `completed`, `failed`.
 
-**`task_chain`** — Define a sequential pipeline. Returns an execution plan the agent follows step-by-step, with `task_save` for intermediate results and `task_list` for progress tracking.
+**`task_chain`** — Define a multi-step pipeline. Creates a chain plan and returns a structured execution guide. Use with `task_step` for automatic `{previous}` resolution between steps.
+
+**`task_step`** — Advance a pipeline chain. Marks a step completed with your result, then returns the next step's prompt with `{previous}` resolved. When the last step completes, marks the chain done.
 
 ## How It Works
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ Agent calls task_chain({chain_id, steps, initial_input})     │
-│  → Writes chain plan to /tmp/opencode-tasks/chain-{id}/     │
-│  → Returns step-by-step execution instructions               │
-├──────────────────────────────────────────────────────────────┤
-│ For each step, agent:                                        │
-│  1. task(description="Step N", prompt="...", background=true)│
-│  2. task_save(task_id="chain-step-N", content=result, ...)   │
-├──────────────────────────────────────────────────────────────┤
-│ task_list(chain_id="...") → shows progress                   │
-└──────────────────────────────────────────────────────────────┘
+task_chain(chain_id="pipeline", steps=[...])
+  → Plan created with N steps
+
+For each step:
+  1. task(background=true, prompt=step_prompt)
+  2. task_save(task_id, content=result, chain_id, step)
+  3. task_step(chain_id, step=N, result=result)
+     → Returns next step's prompt with {previous} resolved
+
+task_list(chain_id="pipeline") → shows progress
 ```
 
 ## Installation
@@ -46,26 +47,56 @@ Add to `~/.config/opencode/opencode.jsonc`:
 ### Save a task result
 ```
 task_save(task_id="research-001", content="...results...", title="Research findings")
-→ Saved `research-001` to `/tmp/opencode-tasks/research-001.md`
+→ Saved `research-001` to `/tmp/opencode-tasks/research-001.md` (4500 chars, status: completed)
+```
+
+Upsert — mark in-flight, then update:
+```
+task_save(task_id="long-job", content="started at ...", status="running")
+→ Saved `long-job` ... (status: running)
+
+# later:
+task_save(task_id="long-job", content="...full result...", status="completed")
+→ Saved `long-job` ... (status: completed)
 ```
 
 ### List tracked tasks
 ```
 task_list()
 → • `research-001` — Research findings (completed) 2026-05-29 12:00:00
+  • `long-job` — long-job (running) 2026-05-29 12:05:00
 ```
 
-### Define a pipeline
+### Pipeline with task_step
 ```
 task_chain(
   chain_id="report",
   steps=[
-    {title: "Research topic", prompt: "Research X in depth. {previous}"},
-    {title: "Summarize", prompt: "Summarize these findings in 3 bullet points: {previous}"},
-    {title: "Write report", prompt: "Write a report based on: {previous}"}
+    {title: "Research topic", prompt: "Research {previous}"},
+    {title: "Summarize", prompt: "Summarize in 3 bullets: {previous}"},
+    {title: "Write report", prompt: "Write a report from: {previous}"}
   ],
   initial_input="Context about X"
 )
+→ Creates plan, returns step 1 prompt
+
+# Execute step 1
+task(background=true, prompt="Research Context about X")
+task_save(task_id="report-step-1", content=<result>, chain_id="report", step=1)
+
+# Advance chain — task_step resolves {previous} in step 2's prompt
+task_step(chain_id="report", step=1, result=<result>)
+→ Returns step 2 prompt with {previous} replaced by actual result
+
+# Execute step 2 with the resolved prompt
+task(background=true, prompt=<step 2 prompt>)
+task_save(task_id="report-step-2", content=<result>, chain_id="report", step=2)
+task_step(chain_id="report", step=2, result=<result>)
+→ Returns step 3 prompt, or "All steps completed!" if done
 ```
 
-Then execute each step with `task(background=true)` + `task_save`.
+### Path validation
+All IDs (`task_id`, `chain_id`) are validated: alphanumeric, hyphens, underscores only. Invalid IDs are rejected with a clear error message.
+
+### Concurrency
+Registry writes use atomic file operations (write to `.tmp`, then `rename`) — safe against concurrent tool calls.
